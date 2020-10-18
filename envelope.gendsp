@@ -1,0 +1,242 @@
+{
+	"patcher" : 	{
+		"fileversion" : 1,
+		"appversion" : 		{
+			"major" : 8,
+			"minor" : 1,
+			"revision" : 5,
+			"architecture" : "x64",
+			"modernui" : 1
+		}
+,
+		"classnamespace" : "dsp.gen",
+		"rect" : [ 59.0, 104.0, 780.0, 569.0 ],
+		"bglocked" : 0,
+		"openinpresentation" : 0,
+		"default_fontsize" : 12.0,
+		"default_fontface" : 0,
+		"default_fontname" : "Arial",
+		"gridonopen" : 1,
+		"gridsize" : [ 15.0, 15.0 ],
+		"gridsnaponopen" : 1,
+		"objectsnaponopen" : 1,
+		"statusbarvisible" : 2,
+		"toolbarvisible" : 1,
+		"lefttoolbarpinned" : 0,
+		"toptoolbarpinned" : 0,
+		"righttoolbarpinned" : 0,
+		"bottomtoolbarpinned" : 0,
+		"toolbars_unpinned_last_save" : 0,
+		"tallnewobj" : 0,
+		"boxanimatetime" : 200,
+		"enablehscroll" : 1,
+		"enablevscroll" : 1,
+		"devicewidth" : 0.0,
+		"description" : "",
+		"digest" : "",
+		"tags" : "",
+		"style" : "",
+		"subpatcher_template" : "",
+		"assistshowspatchername" : 0,
+		"boxes" : [ 			{
+				"box" : 				{
+					"id" : "obj-12",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 445.0, 90.0, 291.0, 22.0 ],
+					"text" : "in 6 @min 0.1 @default 150. @comment release"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-11",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 362.0, 62.0, 326.0, 22.0 ],
+					"text" : "in 5 @min 0. @max 1. @default 0.5 @comment sustain"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-10",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 279.0, 38.0, 261.0, 22.0 ],
+					"text" : "in 4 @min 0.1 @default 100. @comment decay"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-9",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 196.0, 14.0, 248.0, 22.0 ],
+					"text" : "in 3 @min 0.1 @default 1. @comment attack"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-8",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 30.0, 46.0, 35.0, 22.0 ],
+					"text" : "? 1 0"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-7",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 445.0, 465.0, 137.0, 22.0 ],
+					"text" : "out 2 @comment ad out"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-6",
+					"linecount" : 2,
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 25.0, 500.0, 169.0, 33.0 ],
+					"text" : "Peter McCulloch, 2015\npeter.mcculloch@gmail.com"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"code" : "History ad(0);\r\nHistory asr(0);\r\nHistory atk_pulse(0);\r\nHistory eoa(0);\r\nHistory triggered(0);\r\nHistory gate_hist(0);\r\nHistory sustain(0.5);\r\nHistory dcy(1000);\r\nParam attack_lockout(0); \t// If attack_lockout is on, the attack segment MUST complete \r\n\t\t\t\t\t\t\t// before the release or decay can be triggered\r\n\r\n/*  Constants\r\n *  ============================================================================================= \r\n *  Each iteration of the slide will take us ~63% of the remaining distance. \r\n *  To avoid asymptotically approaching our target value (which would make the timing values feel wrong)\r\n *  we aim for a value above (rising) or below (falling) our target and then clip the results.\r\n *\r\n *  After 3 iterations of the RC accumulator, the accumulator will be ~95% of the way there.  \r\n *  By deliberately overshooting our target value by the inverse of this value, we get there right on time.  \r\n *  (The bottom part of the fraction is the ~95% part)  \r\n *\r\n *  It is important that this constant be precise\r\n *  because it will effect the timing precision of the envelope considerably! (i.e. errors compound)\r\n */\r\niter = 1 - (1/e);   \t\t\t\t\t\t\t\t\t\t\t\t// 0.63212055882856  \r\n\r\n// The fractional term is the remaining distance for each iteration (1 the first time, 1/e the second...)\r\nhigh_target = 1./(iter*(1/1) + iter*(1/e) + iter*(1/(e*e)));  \t\t// Going up... (~1.05)\r\nlow_target = 1.-high_target;                            \t\t\t// Going down... (~-0.05)\r\n\r\nsmoothing = 1 -(1/mstosamps(20.));\r\n\r\ndo_trig = (delta(in2>0) > 0);  // Read from the trigger inlet\r\n\r\ngate_in = in1 > 0;\r\n\r\n// If triggered, or attack hasn't ended and gate still active or in lockout mode\r\natk_pulse = (do_trig || !eoa) && (gate_in || attack_lockout); \r\n\r\nattack = mstosamps(in3);\r\nrelease = mstosamps(in6);\r\ndcy = gate_in*mstosamps(in4);  // Short-circuits so that it uses release time when gate is low\r\nsustain = mix(in5,sustain,smoothing);\r\n\r\npuls = atk_pulse > 0 ? high_target : low_target;\r\n\r\nasr_gate = gate_in || atk_pulse ? high_target : low_target;\r\n// If you ONLY \r\n// asr_gate = (in1 > 0) ? high_target : low_target;\r\n\r\n// Clamp so that on overshoot values hit min/max\r\nad = clamp(slide(puls,attack,dcy),0.,1.);\r\nasr = clamp(slide(asr_gate,attack,release),0.,1.);     // in1 acts as a gate signal\r\n\r\neoa = !atk_pulse || (ad >= 1.);\r\n\r\n\r\nout1 = mix(ad,asr,sustain); // blend the two envelopes based on the sustain value\r\nout2 = ad;\r\n",
+					"fontface" : 0,
+					"fontname" : "<Monospaced>",
+					"fontsize" : 12.0,
+					"id" : "obj-5",
+					"maxclass" : "codebox",
+					"numinlets" : 6,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"patching_rect" : [ 30.0, 128.0, 434.0, 319.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-1",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 30.0, 14.0, 119.0, 22.0 ],
+					"text" : "in 1 @comment gate"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-2",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 113.0, 38.0, 130.0, 22.0 ],
+					"text" : "in 2 @comment trigger"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-4",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 30.0, 465.0, 147.0, 22.0 ],
+					"text" : "out 1 @comment adsr out"
+				}
+
+			}
+ ],
+		"lines" : [ 			{
+				"patchline" : 				{
+					"destination" : [ "obj-8", 0 ],
+					"source" : [ "obj-1", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 3 ],
+					"source" : [ "obj-10", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 4 ],
+					"source" : [ "obj-11", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 5 ],
+					"source" : [ "obj-12", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 1 ],
+					"source" : [ "obj-2", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-4", 0 ],
+					"source" : [ "obj-5", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-7", 0 ],
+					"source" : [ "obj-5", 1 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 0 ],
+					"source" : [ "obj-8", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 2 ],
+					"source" : [ "obj-9", 0 ]
+				}
+
+			}
+ ],
+		"autosave" : 0
+	}
+
+}
